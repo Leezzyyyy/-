@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>客服数据分析报表</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --purple: #534AB7; --purple-l: #EEEDFE; --purple-m: #AFA9EC;
+    --teal: #0F6E56; --teal-l: #E1F5EE; --teal-m: #5DCAA5;
+    --amber: #BA7517; --amber-l: #FAEEDA; --amber-m: #EF9F27;
+    --coral: #993C1D; --coral-l: #FAECE7; --coral-m: #F0997B;
+    --blue: #185FA5; --blue-l: #E6F1FB; --blue-m: #85B7EB;
+    --gray: #5F5E5A; --gray-l: #F1EFE8; --gray-m: #B4B2A9;
+    --text: #1a1a1a; --text-s: #555; --border: #ddd;
+    --bg: #f8f7f4; --white: #fff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'PingFang SC', 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6; }
+
+  /* Cover */
+  .cover { background: linear-gradient(135deg, #2d1f6e 0%, #1a4a8a 50%, #0f5c47 100%); color: #fff; padding: 80px 60px; min-height: 320px; display: flex; flex-direction: column; justify-content: center; }
+  .cover h1 { font-size: 36px; font-weight: 600; margin-bottom: 12px; }
+  .cover .subtitle { font-size: 16px; opacity: 0.8; margin-bottom: 32px; }
+  .cover .meta { display: flex; gap: 32px; font-size: 13px; opacity: 0.7; }
+
+  /* TOC */
+  .toc { background: var(--white); border-left: 4px solid var(--purple); margin: 32px 40px; padding: 24px 32px; border-radius: 8px; }
+  .toc h2 { font-size: 15px; font-weight: 600; margin-bottom: 16px; color: var(--purple); }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin-bottom: 8px; font-size: 13px; color: var(--text-s); }
+  .toc li a { color: var(--blue); text-decoration: none; }
+
+  /* Layout */
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 40px 60px; }
+  .section { margin-bottom: 48px; }
+  .section-header { border-bottom: 2px solid var(--purple); padding-bottom: 10px; margin-bottom: 24px; }
+  .section-header h2 { font-size: 20px; font-weight: 600; color: var(--purple); }
+  .section-header p { font-size: 13px; color: var(--text-s); margin-top: 4px; }
+
+  .subsection { margin-bottom: 36px; }
+  .subsection h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--text); border-left: 3px solid var(--teal); padding-left: 10px; }
+
+  /* Sheet tabs */
+  .sheet-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; margin-right: 8px; margin-bottom: 4px; }
+  .badge-purple { background: var(--purple-l); color: #3C3489; }
+  .badge-teal { background: var(--teal-l); color: #085041; }
+  .badge-amber { background: var(--amber-l); color: #633806; }
+  .badge-coral { background: var(--coral-l); color: #712B13; }
+
+  /* Chart grid */
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+  .chart-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  .chart-grid-full { display: grid; grid-template-columns: 1fr; gap: 24px; margin-bottom: 24px; }
+  .chart-box { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .chart-box h4 { font-size: 13px; font-weight: 600; margin-bottom: 16px; color: var(--text-s); text-align: center; }
+  .chart-box canvas { max-height: 280px; }
+  .chart-box-wide canvas { max-height: 320px; }
+
+  /* Stats cards */
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; text-align: center; }
+  .stat-card .val { font-size: 26px; font-weight: 600; color: var(--purple); }
+  .stat-card .lbl { font-size: 12px; color: var(--text-s); margin-top: 4px; }
+  .stat-card.teal .val { color: var(--teal); }
+  .stat-card.amber .val { color: var(--amber); }
+  .stat-card.coral .val { color: var(--coral); }
+
+  /* Table */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px; }
+  .data-table th { background: #f0eef8; color: var(--purple); padding: 10px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid var(--purple-m); }
+  .data-table td { padding: 9px 12px; border-bottom: 1px solid #eee; color: var(--text); }
+  .data-table tr:hover td { background: #fafafa; }
+  .data-table .rank { font-weight: 600; color: var(--purple); }
+  .badge-eff { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+  .eff-high { background: #e1f5ee; color: #085041; }
+  .eff-normal { background: #faeeda; color: #633806; }
+  .eff-low { background: #faece7; color: #712b13; }
+
+  /* Conclusion box */
+  .conclusion { background: linear-gradient(135deg, #f0eef8, #e1f5ee); border-left: 4px solid var(--purple); padding: 16px 20px; border-radius: 0 8px 8px 0; margin-top: 20px; margin-bottom: 8px; }
+  .conclusion h4 { font-size: 13px; font-weight: 600; color: var(--purple); margin-bottom: 8px; }
+  .conclusion p, .conclusion li { font-size: 13px; color: var(--text); line-height: 1.8; }
+  .conclusion ul { padding-left: 16px; }
+
+  /* Keyword cloud */
+  .kw-cloud { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 20px; }
+  .kw-cloud h4 { font-size: 13px; font-weight: 600; color: var(--text-s); margin-bottom: 14px; }
+  .kw-tag { display: inline-block; border-radius: 6px; margin: 4px; font-weight: 500; cursor: default; }
+
+  /* Divider */
+  .page-break { border: none; border-top: 1px dashed var(--border); margin: 40px 0; }
+  .cross-section { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 28px; margin-bottom: 32px; }
+  .cross-section h3 { font-size: 17px; font-weight: 600; color: var(--purple); margin-bottom: 20px; }
+
+  /* Progress bar */
+  .prog-bar { height: 8px; border-radius: 4px; background: #eee; margin: 4px 0 2px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 4px; }
+
+  @media print {
+    body { background: white; }
+    .chart-grid { grid-template-columns: 1fr 1fr; }
+    .stat-grid { grid-template-columns: repeat(4, 1fr); }
+    .page-break-before { page-break-before: always; }
+  }
+
+  /* Back to top */
+  .back-top { position: fixed; bottom: 32px; right: 32px; width: 44px; height: 44px; border-radius: 50%; background: var(--purple); color: #fff; border: none; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 12px rgba(83,74,183,0.35); opacity: 0; transition: opacity 0.2s; z-index: 999; text-decoration: none; line-height: 1; }
+  .back-top.visible { opacity: 1; }
+  .back-top:hover { background: #3C3489; }
+</style>
+</head>
+<body>
+<div id="top"></div>
+<a class="back-top" id="backTop" href="#top" title="回到顶部">↑</a>
+
+<!-- COVER -->
+<div class="cover">
+  <h1>客服对话数据分析报表</h1>
+  <div class="subtitle">基于「无标题表格.xlsx」四个工作表的综合分析</div>
+  <div class="meta">
+    <span>📊 数据来源：小萌酱 · 福哩哩哩导出 · 差旅酱 · 会务酱</span>
+    <span>📅 生成时间：2026年6月</span>
+    <span>📝 总对话行数：476条</span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- TOC -->
+<div class="toc">
+  <h2>目录</h2>
+  <ul style="list-style:none;padding-left:0;">
+    <li><a href="#s1">一、回复时效性分析</a>（效率等级分布 · 各人员平均时长）</li>
+    <li><a href="#s2">二、人员提问频率分析</a>（各服务号独立提问人数 · TOP3人员明细）</li>
+    <li><a href="#s3">三、回复高频词分析</a>（各服务号词云 · 跨服务号 TOP5对比）</li>
+    <li><a href="#s4">四、满意度与问题解决分析</a>（满意度统计 · 语义推断解决率）</li>
+    <li><a href="#s5">五、跨服务号综合汇总</a></li>
+  </ul>
+</div>
+
+<!-- ===== SECTION 1: REPLY EFFICIENCY ===== -->
+<div class="section" id="s1">
+  <div class="section-header">
+    <h2>一、回复时效性分析</h2>
+    <p>对每条发送日期与回复时间进行差值计算（精确到分钟），已排除发送时间仅有日期、时分为 00:00 的无效记录（共15条），划分高效（≤30min）/ 正常（30min-2h）/ 低效（>2h）三级</p>
+  </div>
+
+  <!-- Overall stats cards -->
+  <div class="stat-grid">
+    <div class="stat-card"><div class="val">48 min</div><div class="lbl">小萌酱 整体均值（排除6条缺时分记录）</div></div>
+    <div class="stat-card teal"><div class="val">131 min</div><div class="lbl">福哩哩哩 整体均值（排除1条缺时分记录）</div></div>
+    <div class="stat-card amber"><div class="val">15 min</div><div class="lbl">差旅酱 整体均值 ⭐</div></div>
+    <div class="stat-card coral"><div class="val">49 min</div><div class="lbl">会务酱 整体均值（排除8条缺时分记录）</div></div>
+  </div>
+
+  <!-- Pie charts: efficiency distribution -->
+  <div class="subsection">
+    <h3>1.1 各服务号回复效率等级占比</h3>
+    <div class="chart-grid-3" style="grid-template-columns:1fr 1fr 1fr 1fr">
+      <div class="chart-box">
+        <h4>小萌酱 效率分布</h4>
+        <canvas id="pie1"></canvas>
+      </div>
+      <div class="chart-box">
+        <h4>福哩哩哩导出 效率分布</h4>
+        <canvas id="pie2"></canvas>
+      </div>
+      <div class="chart-box">
+        <h4>差旅酱 效率分布</h4>
+        <canvas id="pie3"></canvas>
+      </div>
+      <div class="chart-box">
+        <h4>会务酱 效率分布</h4>
+        <canvas id="pie4"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bar charts: person avg reply time -->
+  <div class="subsection">
+    <h3>1.2 各发送人员平均回复时长（升序，有效回复记录，排除瞬时同步回复）</h3>
+    <div class="chart-grid">
+      <div class="chart-box chart-box-wide">
+        <h4>小萌酱 — 人员平均回复时长（分钟）</h4>
+        <canvas id="bar_person1"></canvas>
+      </div>
+      <div class="chart-box chart-box-wide">
+        <h4>福哩哩哩导出 — 人员平均回复时长（分钟）</h4>
+        <canvas id="bar_person2"></canvas>
+      </div>
+      <div class="chart-box chart-box-wide">
+        <h4>差旅酱 — 人员平均回复时长（分钟）</h4>
+        <canvas id="bar_person3"></canvas>
+      </div>
+      <div class="chart-box chart-box-wide">
+        <h4>会务酱 — 人员平均回复时长（分钟）</h4>
+        <canvas id="bar_person4"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="conclusion">
+    <h4>💡 核心结论</h4>
+    <ul>
+      <li><strong>差旅酱回复效率最高</strong>：整体均值仅 15 分钟，高效回复占比 96.7%，远超其他三个服务号。</li>
+      <li>修正后小萌酱均值由 128分钟降至 <strong>48分钟</strong>（排除6条仅有日期、无时分记录），高效占比 85.7%，真实效率良好。</li>
+      <li>会务酱修正后均值由 121分钟降至 <strong>49分钟</strong>（排除8条无时分记录），高效占比 86.8%。</li>
+      <li>福哩哩哩导出均值仍为 131分钟，低效占比 18.6%，存在真实的较长等待时段，建议重点排查。</li>
+      <li><strong>建议</strong>：发送时间录入时确保精确到时分，避免仅记录日期导致统计失真。</li>
+    </ul>
+  </div>
+</div>
+
+<hr class="page-break">
+
+<!-- ===== SECTION 2: QUESTION FREQUENCY ===== -->
+<div class="section" id="s2">
+  <div class="section-header">
+    <h2>二、人员提问频率分析</h2>
+    <p>各服务号内独立提问人数（按人员名称去重，相同名称计为1人），及各人员提问次数排名</p>
+  </div>
+
+  <!-- Stat overview: unique person count -->
+  <div class="stat-grid">
+    <div class="stat-card"><div class="val">35</div><div class="lbl">小萌酱 独立提问人数</div></div>
+    <div class="stat-card teal"><div class="val">37</div><div class="lbl">福哩哩哩 独立提问人数</div></div>
+    <div class="stat-card amber"><div class="val">27</div><div class="lbl">差旅酱 独立提问人数</div></div>
+    <div class="stat-card coral"><div class="val">32</div><div class="lbl">会务酱 独立提问人数</div></div>
+  </div>
+
+  <!-- TOP3 tables -->
+  <div class="subsection">
+    <h3>2.1 各服务号提问频率 TOP3 人员</h3>
+    <div class="chart-grid">
+      <div>
+        <p style="font-size:13px;color:var(--text-s);margin-bottom:8px;"><span class="sheet-badge badge-purple">小萌酱</span>（共35人，总64条）</p>
+        <table class="data-table">
+          <thead><tr><th>排名</th><th>发送人员</th><th>提问次数</th><th>占比</th></tr></thead>
+          <tbody>
+            <tr><td class="rank">🥇 1</td><td>Jerry酱</td><td>6</td><td>9.4%</td></tr>
+            <tr><td class="rank">🥈 2</td><td>Tony亦凡</td><td>5</td><td>7.8%</td></tr>
+            <tr><td class="rank">🥉 3</td><td>超高校级的阿紫</td><td>3</td><td>4.7%</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:13px;color:var(--text-s);margin-bottom:8px;margin-top:16px;"><span class="sheet-badge badge-teal">福哩哩哩导出</span>（共37人，总65条）</p>
+        <table class="data-table">
+          <thead><tr><th>排名</th><th>发送人员</th><th>提问次数</th><th>占比</th></tr></thead>
+          <tbody>
+            <tr><td class="rank">🥇 1</td><td>韶韶</td><td>4</td><td>6.2%</td></tr>
+            <tr><td class="rank">🥈 2</td><td>一糖</td><td>4</td><td>6.2%</td></tr>
+            <tr><td class="rank">🥉 3</td><td>啊旺</td><td>3</td><td>4.6%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <p style="font-size:13px;color:var(--text-s);margin-bottom:8px;"><span class="sheet-badge badge-amber">差旅酱</span>（共27人，总213条）</p>
+        <table class="data-table">
+          <thead><tr><th>排名</th><th>发送人员</th><th>提问次数</th><th>占比</th></tr></thead>
+          <tbody>
+            <tr><td class="rank">🥇 1</td><td>Juliet</td><td>39</td><td>18.3%</td></tr>
+            <tr><td class="rank">🥈 2</td><td>边边边</td><td>20</td><td>9.4%</td></tr>
+            <tr><td class="rank">🥉 3</td><td>世一</td><td>18</td><td>8.5%</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:13px;color:var(--text-s);margin-bottom:8px;margin-top:16px;"><span class="sheet-badge badge-coral">会务酱</span>（共32人，总134条）</p>
+        <table class="data-table">
+          <thead><tr><th>排名</th><th>发送人员</th><th>提问次数</th><th>占比</th></tr></thead>
+          <tbody>
+            <tr><td class="rank">🥇 1</td><td>Ivy草莓</td><td>13</td><td>9.7%</td></tr>
+            <tr><td class="rank">🥈 2</td><td>季洁</td><td>11</td><td>8.2%</td></tr>
+            <tr><td class="rank">🥉 3</td><td>刘大壮</td><td>11</td><td>8.2%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="conclusion">
+    <h4>💡 核心结论</h4>
+    <ul>
+      <li>差旅酱 <strong>Juliet</strong> 单人提问 39次，占该服务号总提问量的 18.3%，为全数据集最高频提问者，建议重点关注其差旅需求是否存在系统性问题。</li>
+      <li>会务酱头部三人（Ivy草莓13次、季洁11次、刘大壮11次）集中度较高，合计占比 26%，涉及会议室预订协调的高频需求。</li>
+      <li>小萌酱和福哩哩哩导出的提问分布较分散，TOP1人员占比不超过 10%，说明问题来源更广泛。</li>
+    </ul>
+  </div>
+</div>
+
+<hr class="page-break">
+
+<!-- ===== SECTION 3: HIGH FREQ KEYWORDS ===== -->
+<div class="section" id="s3">
+  <div class="section-header">
+    <h2>三、回复高频词分析</h2>
+    <p>基于各服务号"回复内容"列有效文本提取，排除语气词、结束语、系统提示，按语义归并</p>
+  </div>
+
+  <div class="subsection">
+    <h3>3.1 各服务号回复高频词云</h3>
+
+    <!-- Sheet 1 keywords -->
+    <div class="kw-cloud" style="margin-bottom:16px;">
+      <h4><span class="sheet-badge badge-purple">小萌酱</span> TOP14 高频关键词</h4>
+      <div>
+        <span class="kw-tag" style="font-size:22px;padding:6px 14px;background:#EEEDFE;color:#3C3489;">国正3号楼</span>
+        <span class="kw-tag" style="font-size:20px;padding:5px 12px;background:#E1F5EE;color:#085041;">咨询HR小叮当</span>
+        <span class="kw-tag" style="font-size:19px;padding:5px 12px;background:#FAEEDA;color:#633806;">安保小哥</span>
+        <span class="kw-tag" style="font-size:18px;padding:4px 11px;background:#FAECE7;color:#712B13;">停车申请</span>
+        <span class="kw-tag" style="font-size:18px;padding:4px 11px;background:#EEEDFE;color:#3C3489;">企业微信</span>
+        <span class="kw-tag" style="font-size:17px;padding:4px 10px;background:#E6F1FB;color:#0C447C;">咨询财务小姐姐</span>
+        <span class="kw-tag" style="font-size:16px;padding:4px 10px;background:#E1F5EE;color:#085041;">调取监控申请流程</span>
+        <span class="kw-tag" style="font-size:16px;padding:4px 10px;background:#FAEEDA;color:#633806;">咨询会务酱</span>
+        <span class="kw-tag" style="font-size:15px;padding:3px 9px;background:#FAECE7;color:#712B13;">健身房物品清理</span>
+        <span class="kw-tag" style="font-size:15px;padding:3px 9px;background:#F1EFE8;color:#444441;">医务室</span>
+        <span class="kw-tag" style="font-size:14px;padding:3px 9px;background:#EEEDFE;color:#3C3489;">母婴室</span>
+        <span class="kw-tag" style="font-size:14px;padding:3px 9px;background:#E1F5EE;color:#085041;">工位绑定</span>
+        <span class="kw-tag" style="font-size:14px;padding:3px 9px;background:#FAEEDA;color:#633806;">宠物入驻申请</span>
+        <span class="kw-tag" style="font-size:13px;padding:3px 8px;background:#F1EFE8;color:#444441;">体检未开放</span>
+      </div>
+    </div>
+
+    <div class="kw-cloud" style="margin-bottom:16px;">
+      <h4><span class="sheet-badge badge-teal">福哩哩哩导出</span> TOP12 高频关键词</h4>
+      <div>
+        <span class="kw-tag" style="font-size:24px;padding:6px 14px;background:#E1F5EE;color:#085041;">@福利酱</span>
+        <span class="kw-tag" style="font-size:20px;padding:5px 12px;background:#EEEDFE;color:#3C3489;">企业微信工作台</span>
+        <span class="kw-tag" style="font-size:18px;padding:4px 11px;background:#FAEEDA;color:#633806;">社管申请流程</span>
+        <span class="kw-tag" style="font-size:18px;padding:4px 11px;background:#FAECE7;color:#712B13;">点餐封禁7天</span>
+        <span class="kw-tag" style="font-size:17px;padding:4px 10px;background:#E6F1FB;color:#0C447C;">审批中心</span>
+        <span class="kw-tag" style="font-size:16px;padding:4px 10px;background:#E1F5EE;color:#085041;">21:00领取备餐</span>
+        <span class="kw-tag" style="font-size:16px;padding:4px 10px;background:#FAEEDA;color:#633806;">未取餐</span>
+        <span class="kw-tag" style="font-size:15px;padding:3px 9px;background:#EEEDFE;color:#3C3489;">@文虎</span>
+        <span class="kw-tag" style="font-size:15px;padding:3px 9px;background:#FAECE7;color:#712B13;">班车运营时间</span>
+        <span class="kw-tag" style="font-size:14px;padding:3px 9px;background:#F1EFE8;color:#444441;">体检7-8月</span>
+        <span class="kw-tag" style="font-size:14px;padding:3px 9px;background:#E6F1FB;color:#0C447C;">没有门禁</span>
+        <span class="kw-tag" style="font-size:13px;padding:3px 8px;background:#E1F5EE;color:#085041;">工卡</span>
+      </div>
+    </div>
+
+    <div class="kw-cloud" style="margin-bottom:16px;">
+      <h4><span class="sheet-badge badge-amber">差旅酱</span> TOP14 高频关键词</h4>
+      <div>
+        <span class="kw-tag" style="font-size:24px;padding:6px 14px;background:#FAEEDA;color:#633806;">预定/报销</span>
+        <span class="kw-tag" style="font-size:22px;padding:5px 12px;background:#E1F5EE;color:#085041;">携程商旅</span>
+        <span class="kw-tag" style="font-size:21px;padding:5px 12px;background:#EEEDFE;color:#3C3489;">出差申请单</span>
+        <span class="kw-tag" style="font-size:19px;padding:4px 11px;background:#FAECE7;color:#712B13;">财务小姐姐</span>
+        <span class="kw-tag" style="font-size:18px;padding:4px 11px;background:#E6F1FB;color:#0C447C;">机票</span>
+        <span class="kw-tag" style="font-size:17px;padding:4px 10px;background:#F1EFE8;color:#444441;">差旅管理制度</span>
+        <span class="kw-tag" style="font-size:17px;padding:4px 10px;background:#E1F5EE;color:#085041;">差旅补贴</span>
+        <span class="kw-tag" style="font-size:16px;padding:4px 10px;background:#FAEEDA;color:#633806;">酒店</span>
+        <span class="kw-tag" style="font-size:16px;padding:4px 10px;background:#EEEDFE;color:#3C3489;">新员工权限次日</span>
+        <span class="kw-tag" style="font-size:15px;padding:3px 9px;background:#FAECE7;color:#712B13;">免登录</span>
+        <span class="kw-tag" style="font-size:15px;padding:3px 9px;background:#E6F1FB;color:#0C447C;">升舱</span>
+        <span class="kw-tag" style="font-size:14px;padding:3px 9px;background:#F1EFE8;color:#444441;">单程</span>
+        <span class="kw-tag" style="font-size:14px;padding:3px 9px;background:#FAEEDA;color:#633806;">10106116</span>
+        <span class="kw-tag" style="font-size:13px;padding:3px 8px;background:#E1F5EE;color:#085041;">差旅系统操作手册</span>
+      </div>
+    </div>
+
+    <div class="kw-cloud">
+      <h4><span class="sheet-badge badge-coral">会务酱</span> TOP14 高频关键词</h4>
+      <div>
+        <span class="kw-tag" style="font-size:26px;padding:7px 16px;background:#FAECE7;color:#712B13;">预定</span>
+        <span class="kw-tag" style="font-size:22px;padding:5px 13px;background:#EEEDFE;color:#3C3489;">大会议室</span>
+        <span class="kw-tag" style="font-size:20px;padding:5px 12px;background:#E1F5EE;color:#085041;">发邮件</span>
+        <span class="kw-tag" style="font-size:19px;padding:4px 11px;background:#FAEEDA;color:#633806;">原邮件上回复</span>
+        <span class="kw-tag" style="font-size:18px;padding:4px 11px;background:#E6F1FB;color:#0C447C;">3号楼1808</span>
+        <span class="kw-tag" style="font-size:18px;padding:4px 11px;background:#FAECE7;color:#712B13;">1号楼608</span>
+        <span class="kw-tag" style="font-size:17px;padding:4px 10px;background:#EEEDFE;color:#3C3489;">签到</span>
+        <span class="kw-tag" style="font-size:16px;padding:4px 10px;background:#E1F5EE;color:#085041;">meeting@bilibili.com</span>
+        <span class="kw-tag" style="font-size:16px;padding:4px 10px;background:#FAEEDA;color:#633806;">周一10点释放</span>
+        <span class="kw-tag" style="font-size:15px;padding:3px 9px;background:#F1EFE8;color:#444441;">下线申请</span>
+        <span class="kw-tag" style="font-size:15px;padding:3px 9px;background:#E6F1FB;color:#0C447C;">Sam总</span>
+        <span class="kw-tag" style="font-size:14px;padding:3px 9px;background:#FAECE7;color:#712B13;">专梯</span>
+        <span class="kw-tag" style="font-size:14px;padding:3px 9px;background:#EEEDFE;color:#3C3489;">@挨踢小哥哥</span>
+        <span class="kw-tag" style="font-size:13px;padding:3px 8px;background:#E1F5EE;color:#085041;">抢占</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cross-sheet TOP5 comparison -->
+  <div class="subsection">
+    <h3>3.2 各服务号 TOP5高频词出现次数对比</h3>
+    <table class="data-table">
+      <thead><tr><th>Sheet</th><th>TOP1</th><th>TOP2</th><th>TOP3</th><th>TOP4</th><th>TOP5</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="sheet-badge badge-purple">小萌酱</span></td>
+          <td>国正3号楼（7次）</td>
+          <td>咨询HR小叮当（8次）</td>
+          <td>安保小哥（6次）</td>
+          <td>企业微信（4次）</td>
+          <td>停车申请（4次）</td>
+        </tr>
+        <tr>
+          <td><span class="sheet-badge badge-teal">福哩哩哩</span></td>
+          <td>@福利酱（12次）</td>
+          <td>企业微信工作台（6次）</td>
+          <td>社管申请流程（5次）</td>
+          <td>点餐封禁7天（5次）</td>
+          <td>审批中心（4次）</td>
+        </tr>
+        <tr>
+          <td><span class="sheet-badge badge-amber">差旅酱</span></td>
+          <td>携程商旅（15次）</td>
+          <td>出差申请单（14次）</td>
+          <td>报销（12次）</td>
+          <td>财务小姐姐（10次）</td>
+          <td>机票（9次）</td>
+        </tr>
+        <tr>
+          <td><span class="sheet-badge badge-coral">会务酱</span></td>
+          <td>预定（25次）</td>
+          <td>大会议室（18次）</td>
+          <td>发邮件（12次）</td>
+          <td>原邮件上回复（8次）</td>
+          <td>3号楼1808（8次）</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="chart-box chart-box-wide" style="max-width:680px;margin-top:20px;">
+      <h4>各服务号 TOP1高频词出现次数对比</h4>
+      <canvas id="bar_top5kw" style="max-height:240px;"></canvas>
+    </div>
+  </div>
+
+  <div class="conclusion">
+    <h4>💡 核心结论</h4>
+    <ul>
+      <li>会务酱「<strong>预定</strong>」以 25次高居全数据集词频榜首，其次是「大会议室」18次，说明会议室预订协调是核心高频场景。</li>
+      <li>差旅酱「<strong>携程商旅</strong>」和「出差申请单」分别出现 15次和 14次，系统操作指引是主要回复内容。</li>
+      <li>福哩哩哩导出最高频词为「<strong>@福利酱</strong>」（12次），大量问题被转介给福利酱处理，建议梳理转介流程是否可以简化。</li>
+      <li>小萌酱「国正3号楼」频繁出现，说明地点导引和设施查询是主要诉求类型。</li>
+    </ul>
+  </div>
+</div>
+
+<hr class="page-break">
+
+<!-- ===== SECTION 4: SATISFACTION ===== -->
+<div class="section" id="s4">
+  <div class="section-header">
+    <h2>四、满意度与问题解决情况分析</h2>
+    <p>满意度字段仅含「满意」文字标注，无量化评分，以实际标注数量统计；问题解决率基于语义推断</p>
+  </div>
+
+  <div class="subsection">
+    <h3>4.1 各服务号满意度统计</h3>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="val">17</div><div class="lbl">小萌酱 满意标注（共64行）</div></div>
+      <div class="stat-card teal"><div class="val">11</div><div class="lbl">福哩哩哩 满意标注（共65行）</div></div>
+      <div class="stat-card amber"><div class="val">31</div><div class="lbl">差旅酱 满意标注（共213行）</div></div>
+      <div class="stat-card coral"><div class="val">29</div><div class="lbl">会务酱 满意标注（共134行）</div></div>
+    </div>
+    <p style="font-size:13px;color:var(--text-s);margin-bottom:16px;">⚠️ 满意度字段仅有「满意」一种文字标注，无「一般」「不满意」等对比项，且填写率较低（16%–27%），统计结果反映已明确标注满意的对话比例，不等同于整体满意率。</p>
+
+    <div class="chart-box" style="max-width:540px;">
+      <h4>各服务号满意标注次数对比（绝对数 + 占比）</h4>
+      <canvas id="bar_satis" style="max-height:220px;"></canvas>
+    </div>
+
+    <table class="data-table" style="margin-top:20px;">
+      <thead><tr><th>Sheet</th><th>满意标注次数</th><th>总行数</th><th>标注率</th><th>备注</th></tr></thead>
+      <tbody>
+        <tr><td><span class="sheet-badge badge-purple">小萌酱</span></td><td>17</td><td>64</td><td>26.6%</td><td>仅有「满意」评价</td></tr>
+        <tr><td><span class="sheet-badge badge-teal">福哩哩哩导出</span></td><td>11</td><td>65</td><td>16.9%</td><td>仅有「满意」评价</td></tr>
+        <tr><td><span class="sheet-badge badge-amber">差旅酱</span></td><td>31</td><td>213</td><td>14.6%</td><td>仅有「满意」评价</td></tr>
+        <tr><td><span class="sheet-badge badge-coral">会务酱</span></td><td>29</td><td>134</td><td>21.6%</td><td>仅有「满意」评价</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="subsection">
+    <h3>4.2 问题解决率（语义推断）</h3>
+    <p style="font-size:13px;color:var(--text-s);margin-bottom:16px;">⚠️ 表格无「问题解决状态」字段，以下数据为基于回复内容语义推断：含「已处理」「已安排」「已经」「放在」「可以去」等视为已解决；含「需跟进」「稍等」「（服务聊天已结束）」且无后续的视为待跟进。</p>
+
+    <div class="chart-grid">
+      <div class="chart-box"><h4>各服务号问题解决率对比（语义推断）</h4><canvas id="pie_solve" style="max-height:260px;"></canvas></div>
+      <div>
+        <table class="data-table">
+          <thead><tr><th>Sheet</th><th>已解决（推断）</th><th>待跟进</th><th>解决率</th></tr></thead>
+          <tbody>
+            <tr><td><span class="sheet-badge badge-purple">小萌酱</span></td><td>38</td><td>26</td><td>59.4%</td></tr>
+            <tr><td><span class="sheet-badge badge-teal">福哩哩哩导出</span></td><td>39</td><td>26</td><td>60.0%</td></tr>
+            <tr><td><span class="sheet-badge badge-amber">差旅酱</span></td><td>155</td><td>58</td><td>72.8%</td></tr>
+            <tr><td><span class="sheet-badge badge-coral">会务酱</span></td><td>88</td><td>46</td><td>65.7%</td></tr>
+          </tbody>
+        </table>
+        <div style="background:#fff8e1;border-left:3px solid #EF9F27;padding:10px 14px;border-radius:0 6px 6px 0;font-size:12px;color:#633806;margin-top:12px;">
+          注：问题解决状态字段缺失，统计结果为语义推断值，实际解决率以业务系统记录为准。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="conclusion">
+    <h4>💡 核心结论</h4>
+    <ul>
+      <li>满意度字段填写率普遍偏低（14–27%），建议在对话结束时增加自动化满意度评分收集机制。</li>
+      <li>差旅酱语义推断解决率最高（72.8%），与其高效回复时长吻合，快速响应有助于提升问题解决率。</li>
+      <li>小萌酱、福哩哩哩解决率约60%，大量对话以转介其他同事结束（如"咨询@财务小姐姐"），转介后的跟进情况无记录。</li>
+    </ul>
+  </div>
+</div>
+
+<hr class="page-break">
+
+<!-- ===== SECTION 5: CROSS-SHEET SUMMARY ===== -->
+<div class="section" id="s5">
+  <div class="section-header">
+    <h2>五、跨服务号综合汇总</h2>
+    <p>四个工作表综合指标横向对比</p>
+  </div>
+
+  <div class="cross-section">
+    <h3>综合指标对比总表</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>指标</th>
+          <th><span class="sheet-badge badge-purple">小萌酱</span></th>
+          <th><span class="sheet-badge badge-teal">福哩哩哩</span></th>
+          <th><span class="sheet-badge badge-amber">差旅酱</span></th>
+          <th><span class="sheet-badge badge-coral">会务酱</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>总对话行数</td><td>64</td><td>65</td><td>213</td><td>134</td></tr>
+        <tr><td>整体平均回复时长</td><td>48 分钟</td><td>131 分钟</td><td>15 分钟 ⭐</td><td>49 分钟</td></tr>
+        <tr><td>高效回复占比</td><td>85.7%</td><td>76.7%</td><td>96.7% ⭐</td><td>86.8%</td></tr>
+        <tr><td>低效回复占比</td><td>8.6%</td><td>18.6%</td><td>0.8% ⭐</td><td>7.9%</td></tr>
+        <tr><td>TOP1提问人员</td><td>Jerry酱（6次）</td><td>韶韶/一糖（4次）</td><td>Juliet（39次）⚠️</td><td>Ivy草莓（13次）</td></tr>
+        <tr><td>TOP1高频词</td><td>国正3号楼</td><td>@福利酱</td><td>携程商旅</td><td>预定</td></tr>
+        <tr><td>满意标注次数</td><td>17（26.6%）</td><td>11（16.9%）</td><td>31（14.6%）</td><td>29（21.6%）</td></tr>
+        <tr><td>推断解决率</td><td>59.4%</td><td>60.0%</td><td>72.8% ⭐</td><td>65.7%</td></tr>
+        <tr><td>核心服务场景</td><td>职场设施 / 转介</td><td>福利 / 社团</td><td>差旅预订 / 报销</td><td>会议室预订</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="cross-section">
+    <h3>跨服务号综合图表</h3>
+    <div class="chart-grid">
+      <div class="chart-box"><h4>各服务号高效/正常/低效回复数量对比（堆叠柱状图）</h4><canvas id="bar_stack_eff" style="max-height:280px;"></canvas></div>
+      <div class="chart-box"><h4>各服务号整体指标雷达图</h4><canvas id="radar_overview" style="max-height:280px;"></canvas></div>
+    </div>
+  </div>
+
+  <div class="conclusion">
+    <h4>💡 综合核心结论</h4>
+    <ul>
+      <li>⭐ <strong>差旅酱整体表现最优</strong>：回复时效最快（均值15分钟）、高效占比最高（96%）、推断解决率最高（72.8%）。</li>
+      <li>📋 <strong>会议室预订需求量最大</strong>：会务酱「预定」一词出现25次，且有跨服务号出现频次，建议建立标准化预订流程文档，减少重复沟通。</li>
+      <li>🔀 <strong>转介率偏高</strong>：小萌酱和福哩哩哩导出大量回复以转介其他负责人结束，建议建立转介追踪机制，确保问题闭环。</li>
+      <li>📊 <strong>满意度收集机制待完善</strong>：四个Sheet平均标注率仅约20%，且无量化评分，建议引入1–5星自动评分系统。</li>
+      <li>⚠️ <strong>差旅酱Juliet需重点关注</strong>：单人提问39次，占差旅酱总量18.3%，可能存在差旅系统使用障碍，建议一对一辅导。</li>
+    </ul>
+  </div>
+</div>
+
+<div style="text-align:center;padding:32px 0;color:var(--text-s);font-size:12px;border-top:1px solid var(--border);margin-top:40px;">
+  本报表由自动化脚本生成 · 数据来源：无标题表格.xlsx · 生成时间：2026年6月
+</div>
+
+</div><!-- end container -->
+
+<script>
+const COLORS = {
+  high: '#0F6E56', normal: '#BA7517', low: '#993C1D',
+  purple: '#534AB7', teal: '#0F6E56', amber: '#BA7517', coral: '#993C1D',
+  purple_l: '#AFA9EC', teal_l: '#5DCAA5', amber_l: '#EF9F27', coral_l: '#F0997B',
+};
+
+// Back to top button
+const backTop = document.getElementById('backTop');
+window.addEventListener('scroll', () => {
+  backTop.classList.toggle('visible', window.scrollY > 400);
+});
+
+const defaultFont = { family: 'PingFang SC, Helvetica Neue, Arial, sans-serif', size: 12 };
+Chart.defaults.font = defaultFont;
+Chart.defaults.color = '#555';
+
+function makePie(id, data) {
+  new Chart(document.getElementById(id), {
+    type: 'pie',
+    data: {
+      labels: ['高效 ≤30min', '正常 30min-2h', '低效 >2h'],
+      datasets: [{
+        data: [data[0], data[1], data[2]],
+        backgroundColor: [COLORS.high, COLORS.amber, COLORS.low],
+        borderWidth: 2, borderColor: '#fff'
+      }]
+    },
+    options: {
+      plugins: {
+        legend: { position: 'bottom', labels: { font: defaultFont, padding: 8, boxWidth: 12 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}次 (${Math.round(ctx.raw/(data[0]+data[1]+data[2])*100)}%)` } }
+      }
+    }
+  });
+}
+
+makePie('pie1', [30, 2, 3]);
+makePie('pie2', [33, 2, 8]);
+makePie('pie3', [116, 3, 1]);
+makePie('pie4', [66, 4, 6]);
+
+function makeHBar(id, labels, data, color) {
+  new Chart(document.getElementById(id), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: color + 'cc', borderColor: color, borderWidth: 1, borderRadius: 4 }]
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw} 分钟` } } },
+      scales: {
+        x: { title: { display: true, text: '分钟', font: defaultFont }, grid: { color: '#f0f0f0' } },
+        y: { ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+// Person reply time bars (sorted ascending, >0 diff, excluding 00:00 send times)
+makeHBar('bar_person1',
+  ['奶油o','直男拿铁','didii','Tony亦凡','怡酱','超高校级的阿紫','Lucie','Vivianaa','心予','贾翊'].reverse(),
+  [8,9,10,11,17,20,23,31,100,147].reverse(),
+  COLORS.purple
+);
+makeHBar('bar_person2',
+  ['Forsen','v_baiying','十二十二','安吉拉','DevinWang','Linlyn','v_yuxuan01','Yukkii','Claudio.','达咩达咩'].reverse(),
+  [8,9,9,10,10,10,10,10,11,12].reverse(),
+  COLORS.teal
+);
+makeHBar('bar_person3',
+  ['逐弦','许艾可','可爱又迷人','大垚','Norability','TimZheng','Cici橙子','猫记','Juliet','猪小黑'].reverse(),
+  [2,6,6,8,11,11,12,16,27,30].reverse(),
+  COLORS.amber
+);
+makeHBar('bar_person4',
+  ['吉伊','芮仕恒','张仲景','曾屹林','安安啊','壹琼','沐辰','季洁','Janeonly','一丹'].reverse(),
+  [7,7,9,10,10,10,11,11,12,12].reverse(),
+  COLORS.coral
+);
+
+// Keyword TOP1 comparison
+new Chart(document.getElementById('bar_top5kw'), {
+  type: 'bar',
+  data: {
+    labels: ['小萌酱\n国正3号楼', '福哩哩哩\n@福利酱', '差旅酱\n携程商旅', '会务酱\n预定'],
+    datasets: [{ label: '出现次数', data: [7,12,15,25],
+      backgroundColor: [COLORS.purple+'cc', COLORS.teal+'cc', COLORS.amber+'cc', COLORS.coral+'cc'],
+      borderColor: [COLORS.purple, COLORS.teal, COLORS.amber, COLORS.coral],
+      borderWidth:1, borderRadius:6 }]
+  },
+  options: { plugins: { legend: {display:false} }, scales: { y: { beginAtZero:true, grid:{color:'#f0f0f0'} } } }
+});
+
+// Satisfaction bar
+new Chart(document.getElementById('bar_satis'), {
+  type: 'bar',
+  data: {
+    labels: ['小萌酱', '福哩哩哩导出', '差旅酱', '会务酱'],
+    datasets: [
+      { label: '满意标注次数', data: [17,11,31,29],
+        backgroundColor: [COLORS.purple+'cc', COLORS.teal+'cc', COLORS.amber+'cc', COLORS.coral+'cc'],
+        borderColor: [COLORS.purple, COLORS.teal, COLORS.amber, COLORS.coral],
+        borderWidth:1, borderRadius:6 },
+    ]
+  },
+  options: { plugins:{ legend:{display:false} }, scales: { y: { beginAtZero:true, grid:{color:'#f0f0f0'} } } }
+});
+
+// Solve rate pie
+new Chart(document.getElementById('pie_solve'), {
+  type: 'doughnut',
+  data: {
+    labels: ['小萌酱(59%)', '福哩哩哩(60%)', '差旅酱(73%)', '会务酱(66%)'],
+    datasets: [{
+      data: [59.4, 60.0, 72.8, 65.7],
+      backgroundColor: [COLORS.purple+'cc', COLORS.teal+'cc', COLORS.amber+'cc', COLORS.coral+'cc'],
+      borderColor: '#fff', borderWidth: 2
+    }]
+  },
+  options: {
+    plugins: {
+      legend: { position:'bottom', labels: { font: defaultFont, padding:8, boxWidth:12 } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label}` } }
+    }
+  }
+});
+
+// Stacked bar
+new Chart(document.getElementById('bar_stack_eff'), {
+  type: 'bar',
+  data: {
+    labels: ['小萌酱', '福哩哩哩导出', '差旅酱', '会务酱'],
+    datasets: [
+      { label: '高效（≤30min）', data: [30,33,116,66], backgroundColor: COLORS.high+'cc', borderWidth:0, borderRadius:0 },
+      { label: '正常（30min-2h）', data: [2,2,3,4], backgroundColor: COLORS.amber+'cc', borderWidth:0 },
+      { label: '低效（>2h）', data: [3,8,1,6], backgroundColor: COLORS.low+'cc', borderWidth:0 },
+    ]
+  },
+  options: {
+    plugins: { legend: { position:'bottom', labels: { font: defaultFont, padding:8, boxWidth:12 } } },
+    scales: {
+      x: { stacked: true },
+      y: { stacked: true, title: { display:true, text:'回复次数' }, grid:{color:'#f0f0f0'} }
+    }
+  }
+});
+
+// Radar chart
+new Chart(document.getElementById('radar_overview'), {
+  type: 'radar',
+  data: {
+    labels: ['高效占比', '回复量', '满意标注', '推断解决率', '低效少'],
+    datasets: [
+      { label: '小萌酱', data: [86,30,50,59,91], borderColor: COLORS.purple, backgroundColor: COLORS.purple+'22', pointBackgroundColor: COLORS.purple, borderWidth:2 },
+      { label: '福哩哩哩', data: [77,31,35,60,81], borderColor: COLORS.teal, backgroundColor: COLORS.teal+'22', pointBackgroundColor: COLORS.teal, borderWidth:2 },
+      { label: '差旅酱', data: [97,100,60,73,99], borderColor: COLORS.amber, backgroundColor: COLORS.amber+'22', pointBackgroundColor: COLORS.amber, borderWidth:2 },
+      { label: '会务酱', data: [87,63,70,66,92], borderColor: COLORS.coral, backgroundColor: COLORS.coral+'22', pointBackgroundColor: COLORS.coral, borderWidth:2 },
+    ]
+  },
+  options: {
+    plugins: { legend: { position:'bottom', labels: { font: defaultFont, padding:6, boxWidth:12 } } },
+    scales: { r: { min:0, max:100, ticks: { font:{size:10} }, pointLabels: { font:{size:11} } } }
+  }
+});
+</script>
+</body>
+</html>
